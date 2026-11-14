@@ -1,0 +1,10 @@
+# .wrangler 与构建产物
+.wrangler/
+.dist/
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# 本地后台选择状态等临时文件
+*.tmp

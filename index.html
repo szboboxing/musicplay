@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EFF7F1">
+<title>MusicPlay · 云端媒体中心 · 热播榜单 · 网络电台 · 网络电视</title>
+<meta name="description" content="云端媒体中心：在线播放云端音频与视频、加入本机文件试听；下方热播榜单实时更新，点歌名即可播放。">
+<meta name="app-version" content="1.3.3">
+<!--INLINE_CSS-->
+<script src="assets/app.js?v=20261110a" defer></script>
+<script>
+try{
+  var _m = localStorage.getItem('gy_theme') || 'auto';
+  var _d = _m === 'auto' ? ((matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light') : _m;
+  document.documentElement.setAttribute('data-theme', _d);
+  var _s = localStorage.getItem('mp_skin');
+  if (_s !== 'v131') { _s = 'v133'; }
+  document.documentElement.setAttribute('data-skin', _s);
+}catch(e){}
+</script>
+</head>
+<body>
+<div id="progress"></div>
+
+<header class="pillnav-wrap">
+  <nav class="pillnav">
+    <a href="#sec-media">媒体中心</a>
+    <a href="#sec-charts">热播榜单</a>
+    <a href="#sec-radio">网络电台</a>
+    <a href="#sec-tv">网络电视</a>
+    <button id="themeBtn" type="button">自动</button>
+    <a href="admin.html">后台</a>
+  </nav>
+</header>
+
+<main class="wrap mp-wrap">
+  <section class="mp-hero">
+    <span class="blob blob-a"></span>
+    <span class="blob blob-b"></span>
+    <div class="hero-inner">
+      <p class="eyebrow">MusicPlay · Cloud Media</p>
+      <h1>云端媒体中心</h1>
+      <p class="lede">云端曲库、热播榜单、网络电台与网络电视，一个页面听遍看遍。播放器放大、随点随听，本机的音频 / 视频也能加入试听。</p>
+      <div class="mp-meta">
+        <button class="ver-chip" id="verBtn" type="button" aria-haspopup="dialog" title="切换界面版本">
+          <span id="verLabel">V1.3.3</span><span class="ver-more">切换</span>
+        </button>
+        <span class="ver-date" id="verDate">2026-11-09 · 青岚玻璃</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="sec-media" class="block">
+    <div class="block-head">
+      <span class="badge b-teal">♪</span>
+      <div><h2>云端媒体中心</h2><p class="sub">云端音频 / 视频在线播放 · 本机文件本地试听</p></div>
+    </div>
+
+    <div class="media-card" id="mediaCard">
+      <div class="media-stage">
+        <div class="stage-top">
+          <span class="stage-label" id="musNow">未播放</span>
+          <span class="stage-count" id="musCount">—</span>
+        </div>
+
+        <video id="musVideo" class="big-video" playsinline webkit-playsinline preload="auto" hidden></video>
+        <canvas id="musWave" class="big-wave" width="880" height="200" aria-label="播放示波图"></canvas>
+
+        <div class="big-prog">
+          <span id="musTime">0:00</span>
+          <div class="mus-seek">
+            <div class="mus-track"></div>
+            <div class="mus-buf" id="musBufBar"></div>
+            <div class="mus-played" id="musPlayedBar"></div>
+            <input type="range" id="musSeek" min="0" max="1000" value="0" step="1" aria-label="播放进度">
+          </div>
+          <span id="musDur">0:00</span>
+        </div>
+
+        <div class="big-controls">
+          <button id="musPrev" type="button" title="上一首">⏮</button>
+          <button id="musPlay" class="primary big-play" type="button" title="播放 / 暂停">▶</button>
+          <button id="musNext" type="button" title="下一首">⏭</button>
+          <button id="musMode" class="mode-btn" type="button" title="切换：顺序播放 / 单曲循环">顺序播放</button>
+          <span class="spacer"></span>
+          <div class="big-vol">
+            <button id="musMute" type="button" title="静音 / 恢复">🔊</button>
+            <input type="range" id="musVol" min="0" max="100" value="60" step="1" aria-label="音量">
+            <span id="musVolTxt">60%</span>
+          </div>
+        </div>
+      </div>
+
+      <aside class="media-side">
+        <div class="side-head">
+          <span>云端歌单</span>
+          <button id="musUpload" type="button" title="加入本机音频 / 视频（仅本机试听，不上传）">＋ 本机文件</button>
+        </div>
+        <div class="mus-list big-list" id="musList"></div>
+        <div class="mus-pager" id="musPager">
+          <button id="musPrevPage" type="button" title="上一页">上一页</button>
+          <span id="musPageInfo">1 / 1</span>
+          <button id="musNextPage" type="button" title="下一页">下一页</button>
+        </div>
+        <p class="hint side-foot">云端曲库由后台统一上传与管理；本机文件只在你自己的浏览器里试听，不会上传。支持 mp3 / wav / m4a / mp4 / webm。</p>
+      </aside>
+    </div>
+    <input type="file" id="musInput" accept="audio/*,video/*" hidden>
+  </section>
+
+  <div class="divider">· · ·</div>
+
+  <section id="sec-charts" class="block">
+    <div class="block-head">
+      <span class="badge b-terra">♫</span>
+      <div><h2>热播榜单</h2><p class="sub" id="chartSub">网上最新最热的歌 · 点歌名即可在线播放</p></div>
+    </div>
+    <div class="card chart-card">
+      <div class="chart-tabs" id="chartTabs">
+        <button type="button" data-board="cn" class="on">华语热播</button>
+        <button type="button" data-board="rising">飙升热播</button>
+        <button type="button" data-board="original">原创 &amp; AI</button>
+      </div>
+
+      <div class="chart-now" id="chartNow" hidden>
+        <div class="chart-now-top">
+          <div class="chart-btns">
+            <button id="chartPrev" type="button" title="上一首">⏮</button>
+            <button id="chartPlay" class="primary" type="button" title="播放 / 暂停">▶</button>
+            <button id="chartNext" type="button" title="下一首">⏭</button>
+          </div>
+          <div class="chart-now-name" id="chartNowName">—</div>
+        </div>
+        <canvas id="chartWave" class="chart-wave" width="960" height="120" aria-label="播放立柱波形图"></canvas>
+        <div class="chart-prog">
+          <span id="chartTime">0:00</span>
+          <div class="chart-seek">
+            <div class="chart-track"></div>
+            <div class="chart-played" id="chartPlayed"></div>
+            <input type="range" id="chartSeek" min="0" max="1000" value="0" step="1" aria-label="榜单播放进度">
+          </div>
+          <span id="chartDur">0:00</span>
+          <button id="chartMode" class="chart-mode" type="button" title="当前：顺序播放，点击改为单曲循环">顺序</button>
+        </div>
+      </div>
+
+      <div class="chart-list" id="chartList">
+        <p class="hint chart-loading">正在抓取最新榜单…</p>
+      </div>
+      <p class="hint chart-foot">数据来源：网易云音乐（热歌榜 / 飙升榜）· Audius（原创 / AI），均为可完整播放的曲目</p>
+    </div>
+  </section>
+
+  <div class="divider">· · ·</div>
+
+  <section id="sec-radio" class="block">
+    <div class="block-head">
+      <span class="badge b-violet">◎</span>
+      <div><h2>网络电台</h2><p class="sub" id="radioSub">实时广播 · 分组收听，点台名即播</p></div>
+      <button id="radioFold" class="fold-btn" type="button" aria-expanded="true" aria-controls="radioBody">收起</button>
+    </div>
+
+    <div class="card radio-card" id="radioBody">
+      <div class="radio-stage">
+        <span class="radio-orb"></span>
+        <div class="radio-stage-top">
+          <div class="radio-now">
+            <span class="radio-kicker">ON AIR · 网络电台</span>
+            <div class="radio-name" id="radioName">未播放</div>
+            <div class="radio-meta">
+              <span class="rchip" id="radioChip">就绪</span>
+              <span class="radio-buf" id="radioBuf">本机缓冲 —</span>
+            </div>
+          </div>
+          <div class="radio-side">
+            <span class="radio-visual" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <button id="radioFav" class="radio-fav" type="button" title="收藏当前电台">☆</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="radio-controls">
+        <div class="radio-transport">
+          <button id="radioPrev" type="button" title="上一台">⏮</button>
+          <button id="radioPlay" class="primary radio-play" type="button" title="播放 / 暂停">▶</button>
+          <button id="radioNext" type="button" title="下一台">⏭</button>
+          <button id="radioStop" class="radio-stop" type="button" title="停止播放">■</button>
+        </div>
+        <div class="radio-vol">
+          <button id="radioMute" type="button" title="静音 / 恢复">🔊</button>
+          <input type="range" id="radioVol" min="0" max="100" value="60" step="1" aria-label="电台音量">
+          <span id="radioVolTxt">60%</span>
+        </div>
+      </div>
+
+      <div class="radio-opts">
+        <div class="radio-optgroup">
+          <span class="radio-opt-label">定时关闭</span>
+          <div class="radio-seg" id="radioSleep"></div>
+          <span class="radio-sleep-left" id="radioSleepLeft" hidden></span>
+        </div>
+        <button id="radioReconnect" class="radio-mini on" type="button" title="断线后自动重连">重连 开</button>
+      </div>
+
+      <div class="radio-tools">
+        <input type="search" id="radioSearch" placeholder="搜索电台名称…" autocomplete="off" aria-label="搜索电台">
+        <button id="radioCheck" type="button">▶ 检查可播</button>
+      </div>
+
+      <div class="radio-list" id="radioList"></div>
+      <p class="hint radio-foot">实时广播流，全部走 HTTPS 音源；健康灯由浏览器本地探测，仅供参考。开始收听时会自动暂停媒体中心与榜单。</p>
+    </div>
+  </section>
+
+  <div class="divider">· · ·</div>
+
+  <section id="sec-tv" class="block">
+    <div class="block-head">
+      <span class="badge b-violet">▣</span>
+      <div><h2>网络电视</h2><p class="sub" id="tvSub">直播频道 · 点台即看</p></div>
+      <button id="tvFold" class="fold-btn" type="button" aria-expanded="true" aria-controls="tvBody">收起</button>
+    </div>
+
+    <div class="card tv-card" id="tvBody">
+      <div class="tv-stage" id="tvStage">
+        <video id="tvVideo" class="tv-video" playsinline webkit-playsinline controls preload="none"></video>
+        <div class="tv-cover" id="tvCover">
+          <span class="tv-cover-ico">▣</span>
+          <b>网络电视直播</b>
+          <em>选择下方频道开始观看</em>
+        </div>
+        <span class="tv-live" id="tvLive" hidden>LIVE</span>
+      </div>
+
+      <div class="tv-bar">
+        <div class="tv-now">
+          <span class="rchip" id="tvChip">就绪</span>
+          <span class="tv-name" id="tvName">未播放</span>
+        </div>
+        <div class="tv-actions">
+          <button id="tvPrev" type="button" title="上一个频道">⏮</button>
+          <button id="tvPlay" class="primary" type="button" title="播放 / 暂停">▶</button>
+          <button id="tvNext" type="button" title="下一个频道">⏭</button>
+          <button id="tvFull" type="button" title="全屏观看">全屏</button>
+        </div>
+      </div>
+
+      <div class="tv-list" id="tvList"></div>
+      <p class="hint tv-foot">HLS 直播流：Chrome / Edge 由 hls.js 解码（首次点播才加载），Safari 走原生播放；CCTV-3 / 5 / 5+ / 13 与深圳 6 个频道使用官方网页播放器。开始观看会自动暂停媒体中心、榜单与电台。</p>
+    </div>
+  </section>
+
+  <footer class="site-foot">MusicPlay <span class="foot-ver" id="footVer">V1.3.3</span> · 云端媒体中心 + 热播榜单 + 网络电台 + 网络电视 · 媒体文件存放于 Cloudflare R2</footer>
+</main>
+
+<button id="backtop" class="backtop" type="button" title="回到顶部">↑</button>
+<div id="toast"></div>
+
+<div class="modal" id="verModal" role="dialog" aria-modal="true" aria-label="界面版本">
+  <div class="modal-card ver-card">
+    <h2>界面版本</h2>
+    <p class="sub">保留两版界面，点选即可切换，选择会记住。</p>
+    <div class="ver-list">
+      <button class="ver-opt" data-skin="v133" type="button">
+        <span class="ver-swatch s133"></span>
+        <span class="ver-txt"><b>V1.3.3 · 青岚玻璃</b><em>最新 · 清透青绿 + 毛玻璃 + 电台折叠</em></span>
+      </button>
+      <button class="ver-opt" data-skin="v131" type="button">
+        <span class="ver-swatch s131"></span>
+        <span class="ver-txt"><b>V1.3.1 · 暖纸经典</b><em>暖米色纸感外观，功能与 V1.3.3 一致</em></span>
+      </button>
+    </div>
+    <div class="modal-foot"><button class="btn sm" id="verClose" type="button">关闭</button></div>
+  </div>
+</div>
+
+</body>
+</html>

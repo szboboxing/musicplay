@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#EFF7F1">
+<title>后台管理 · MusicPlay</title>
+<link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/app.css">
+<script>
+try{
+  var _m = localStorage.getItem('gy_theme') || 'auto';
+  var _d = _m === 'auto' ? ((matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light') : _m;
+  document.documentElement.setAttribute('data-theme', _d);
+}catch(e){}
+</script>
+<style>
+  .admin-brand{font-family:var(--font-serif);font-weight:700;padding:0 14px;white-space:nowrap}
+  .hint-cell{max-width:340px;color:var(--muted);font-size:12px}
+  .act-btns{display:flex;gap:6px;flex-wrap:wrap}
+  .data-table th.pick{width:34px;padding-left:10px;padding-right:0}
+  .data-table td .mchk{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+  /* 上传进度条 */
+  .up-progress{margin:14px 0 2px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel-2)}
+  .up-progress[hidden]{display:none}
+  .up-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:9px;
+    font-size:12px;color:var(--muted);line-height:1.4}
+  .up-row b{flex:0 0 auto;color:var(--accent);font-size:13px;font-variant-numeric:tabular-nums}
+  .up-bar{height:8px;border-radius:8px;background:var(--line);overflow:hidden}
+  .up-bar>i{display:block;height:100%;width:0;border-radius:8px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .18s ease}
+  .up-bar.indet>i{width:100%!important;opacity:.45;animation:upPulse 1.1s ease-in-out infinite}
+  @keyframes upPulse{0%,100%{opacity:.25}50%{opacity:.6}}
+  .act-btns button{min-height:36px;padding:0 10px;border-radius:9px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit}
+  .act-btns button:hover{background:var(--bg-soft)}
+  @media(max-width:760px){
+    .admin-table-wrap{background:transparent;box-shadow:none;overflow:visible}
+    .admin-table-wrap .data-table{display:block;min-width:0;background:transparent;font-size:13px}
+    .admin-table-wrap .data-table thead{display:none}
+    .admin-table-wrap .data-table tbody{display:block}
+    .admin-table-wrap .data-table tr{display:block;background:var(--panel);border-radius:16px;
+      box-shadow:var(--shadow-sm);padding:12px 14px;margin:0 0 10px}
+    .admin-table-wrap .data-table td{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;
+      border:none;padding:4px 0;word-break:break-word}
+    .admin-table-wrap .data-table td::before{content:attr(data-label);flex:0 0 62px;color:var(--muted);
+      font-size:12px;line-height:1.5;padding-top:1px}
+    .admin-table-wrap .act-btns{flex:1}
+    .admin-table-wrap .act-btns button{flex:1 1 auto;min-height:42px}
+    .admin-toolbar .btn{flex:1 1 auto;min-height:48px;font-size:14px}
+    .admin-toolbar .grow{display:none}
+    .admin-toolbar select{flex:1 1 100%;min-height:48px}
+    .modal{padding:10px;align-items:flex-start}
+    .modal-card{padding:16px;border-radius:18px}
+    .modal-card input[type=text]{font-size:16px}
+  }
+</style>
+</head>
+<body>
+
+<header class="pillnav-wrap">
+  <nav class="pillnav">
+    <a href="index.html">← 返回首页</a>
+    <span class="admin-brand">后台管理</span>
+    <button id="themeBtn" type="button">自动</button>
+    <a href="/admin/logout">退出登录</a>
+  </nav>
+</header>
+
+<main class="wrap mp-wrap">
+  <section class="block">
+    <div class="block-head">
+      <span class="badge b-terra">媒</span>
+      <div><h2>云端媒体中心</h2><p class="sub">上传音频 / 视频，存放在云端 R2，所有访客共享；音频自动压缩为 MP3，视频原样上传</p></div>
+    </div>
+
+    <div class="admin-toolbar">
+      <button id="btnMusicAdd" class="btn primary" type="button">＋ 上传音频 / 视频</button>
+      <select id="musicBitrate" title="音频压缩码率（仅对音频生效，视频原样上传）">
+        <option value="96">音频 96 kbps · 更小</option>
+        <option value="128" selected>音频 128 kbps · 推荐</option>
+        <option value="192">音频 192 kbps · 高音质</option>
+      </select>
+      <input type="file" id="musicInput" accept="audio/*,video/*,.mp3,.wav,.m4a,.ogg,.flac,.aac,.mp4,.webm,.mov,.m4v,.ogv" multiple hidden>
+      <span class="grow"></span>
+      <button id="btnMusicDl" class="btn ghost" type="button" disabled>下载选中</button>
+      <button id="btnMusicRefresh" class="btn ghost" type="button">刷新列表</button>
+    </div>
+
+    <div class="up-progress" id="upProgress" hidden>
+      <div class="up-row"><span id="upLabel">准备上传…</span><b id="upPct">0%</b></div>
+      <div class="up-bar"><i id="upFill"></i></div>
+    </div>
+
+    <div class="admin-table-wrap">
+      <table class="data-table">
+        <thead><tr><th class="pick"><input type="checkbox" id="musicAll" title="全选本页" aria-label="全选本页"></th><th>#</th><th>名称</th><th>类型</th><th>时长</th><th>大小</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="musicBody"><tr><td colspan="8" class="hint">正在读取…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="admin-pager" id="musicPager">
+      <button id="musicPrevPage" class="btn ghost sm" type="button">上一页</button>
+      <span id="musicPageInfo">1 / 1</span>
+      <button id="musicNextPage" class="btn ghost sm" type="button">下一页</button>
+    </div>
+
+    <p class="hint" style="margin-top:14px" id="musicHint">
+      音频：mp3 / wav / m4a / ogg / flac / aac，浏览器内压缩为 MP3（约 10 分钟内，更长的自动改为原样上传）。
+      视频：推荐 mp4（H.264）或 webm，原样上传、不做压缩，首页大窗口播放。
+      单次请求受 Cloudflare 平台限制约 100MB，更大的文件请先压缩。
+    </p>
+  </section>
+
+  <section class="block">
+    <div class="block-head">
+      <span class="badge b-teal">说</span>
+      <div><h2>说明</h2><p class="sub">曲库变更在首页约 1 秒内生效</p></div>
+    </div>
+    <div class="card">
+      <ul class="dot-list">
+        <li>「启用 / 停用」只影响首页是否展示，云端文件不会删除，随时可再启用。</li>
+        <li>「重命名」只改显示名，链接与播放进度不受影响。</li>
+        <li>「删除」会同时移除云端文件与索引，所有访客都无法再播放。</li>
+        <li>「下载」把云端原文件保存到本机；勾选多行后点顶部「下载选中」可批量下载（浏览器可能询问是否允许多文件下载）。</li>
+        <li>首页所有访客都能播放云端音频 / 视频，也能加入本机文件试听；本机文件不会上传。</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="site-foot">MusicPlay 后台 · 媒体存放于 Cloudflare R2</footer>
+</main>
+
+<!-- 重命名弹窗 -->
+<div class="modal" id="renameModal">
+  <div class="modal-card">
+    <h2>重命名</h2>
+    <input id="renameInput" type="text" maxlength="60" placeholder="新的显示名称">
+    <div class="modal-foot">
+      <button id="renameCancel" class="btn ghost sm" type="button">取消</button>
+      <button id="renameSave" class="btn primary sm" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 视频预览弹窗 -->
+<div class="modal" id="videoModal">
+  <div class="modal-card">
+    <h2 id="videoModalTitle">视频预览</h2>
+    <video id="videoPreview" playsinline webkit-playsinline controls preload="auto"></video>
+    <div class="modal-foot" style="margin-top:14px">
+      <button id="videoCloseX" class="btn ghost sm" type="button">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="assets/lame.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+
+  /* 主题 */
+  var THEME_KEY = 'gy_theme';
+  var themeMode = (function () { try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; } })();
+  function applyTheme() {
+    var d = themeMode === 'auto'
+      ? ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light')
+      : themeMode;
+    document.documentElement.setAttribute('data-theme', d);
+    var b = $('themeBtn');
+    if (b) b.textContent = themeMode === 'auto' ? '自动' : (themeMode === 'dark' ? '昏暗' : '明亮');
+  }
+  if ($('themeBtn')) {
+    $('themeBtn').addEventListener('click', function () {
+      themeMode = themeMode === 'auto' ? 'light' : (themeMode === 'light' ? 'dark' : 'auto');
+      try { localStorage.setItem(THEME_KEY, themeMode); } catch (e) {}
+      applyTheme();
+    });
+  }
+  applyTheme();
+
+  /* Toast */
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }
+
+  /* ---------------- 云端媒体中心管理（R2 云端存储：音频 + 视频） ---------------- */
+  var music = [];
+  var musicLoading = false;
+  var musicAudio = new Audio();
+  var musicPlayingKey = '';
+
+  /* 云端上限（由 /api/music 响应头下发，可随时用 Worker 的 MAX_UPLOAD_MB / MAX_STORAGE_MB 调整） */
+  var MAX_CLOUD_BYTES = 100 * 1024 * 1024;
+  var MAX_STORAGE_BYTES = 0;
+  var STORAGE_USED_BYTES = 0;
+  var DIRECT_MEDIA = false;
+  function applyMediaLimits(h) {
+    if (!h) return;
+    var get = typeof h.get === 'function' ? function (n) { return h.get(n); }
+      : (typeof h.getResponseHeader === 'function' ? function (n) { return h.getResponseHeader(n); } : null);
+    if (!get) return;
+    var v;
+    v = Number(get('X-Media-Max-Upload-Bytes'));   if (v > 0) MAX_CLOUD_BYTES = v;
+    v = Number(get('X-Media-Max-Storage-Bytes'));  if (v > 0) MAX_STORAGE_BYTES = v;
+    v = Number(get('X-Media-Storage-Used-Bytes')); if (v > 0) STORAGE_USED_BYTES = v;
+    DIRECT_MEDIA = get('X-Media-Direct') === '1';
+  }
+  function usageText() {
+    var s = ' · 单次上限 ' + fmtSize(MAX_CLOUD_BYTES);
+    if (MAX_STORAGE_BYTES) {
+      var pct = Math.min(100, Math.round(STORAGE_USED_BYTES / MAX_STORAGE_BYTES * 1000) / 10);
+      s += ' · 云端已用 ' + fmtSize(STORAGE_USED_BYTES) + ' / ' + fmtSize(MAX_STORAGE_BYTES) + '（' + pct + '%）';
+    }
+    if (DIRECT_MEDIA) s += ' · R2 直出已开启';
+    return s;
+  }
+  function fmtSize(n) {
+    n = Number(n) || 0;
+    if (!n) return '—';
+    return n >= 1048576 ? (n / 1048576).toFixed(2) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+  }
+  function fmtDur(s) {
+    s = Number(s) || 0;
+    if (!s) return '—';
+    var m = Math.floor(s / 60), ss = Math.round(s % 60);
+    if (ss === 60) { m++; ss = 0; }
+    return m + ':' + (ss < 10 ? '0' : '') + ss;
+  }
+  function musicHint(msg, isErr) {
+    var h = $('musicHint'); if (!h) return;
+    h.textContent = msg;
+    h.style.color = isErr ? '#C0392B' : '';
+  }
+  /* 上传进度条：pct 为 null 时显示不确定态（读取信息 / 等待响应） */
+  var upTimer = 0;
+  function upSet(pct, label) {
+    var w = $('upProgress'); if (!w) return;
+    var bar = w.querySelector('.up-bar'), fill = $('upFill');
+    if (label) $('upLabel').textContent = label;
+    if (pct == null || !isFinite(pct)) {
+      if (bar) bar.classList.add('indet');
+      if ($('upPct')) $('upPct').textContent = '…';
+      return;
+    }
+    pct = Math.max(0, Math.min(100, Math.round(pct)));
+    if (bar) bar.classList.remove('indet');
+    if (fill) fill.style.width = pct + '%';
+    if ($('upPct')) $('upPct').textContent = pct + '%';
+  }
+  function upShow(label) {
+    var w = $('upProgress'); if (!w) return;
+    clearTimeout(upTimer);
+    w.hidden = false;
+    upSet(null, label || '准备上传…');
+  }
+  function upDone(label) {
+    var w = $('upProgress'); if (!w) return;
+    upSet(100, label || '已完成');
+    clearTimeout(upTimer);
+    upTimer = setTimeout(function () { w.hidden = true; }, 1400);
+  }
+  function upHide() {
+    var w = $('upProgress'); if (!w) return;
+    clearTimeout(upTimer);
+    w.hidden = true;
+  }
+  function trackSrc(t) { return t.src || ('/media/' + t.key); }
+  function apiError(r, out, fallback) {
+    if (r.status === 401) return '登录会话已过期，请刷新本页重新登录';
+    return (out && out.error && (out.error.message || out.error)) || fallback;
+  }
+  function isVideoTrack(t) {
+    if (!t) return false;
+    if (typeof t.video === 'boolean') return t.video;
+    var tp = String(t.type || '').toLowerCase();
+    if (tp) return /^video\//.test(tp);
+    return /\.(mp4|m4v|webm|mov|ogv)/i.test(String(t.key || t.src || ''));
+  }
+
+  var MUSIC_PAGE_SIZE = 10, musicPage = 0;
+  var picked = (function () { try { return new Set(JSON.parse(localStorage.getItem('mp_admin_pick') || '[]')); } catch (e) { return new Set(); } })();
+  function savePicked() { try { localStorage.setItem('mp_admin_pick', JSON.stringify(Array.from(picked))); } catch (e) {} }
+  function syncDlBtn() {
+    var b = $('btnMusicDl'); if (!b) return;
+    var n = picked.size;
+    b.textContent = n ? ('下载选中（' + n + '）') : '下载选中';
+    b.disabled = n === 0;
+  }
+  function syncPickAll() {
+    var h = $('musicAll'); if (!h) return;
+    var rows = $('musicBody') ? $('musicBody').querySelectorAll('input.mchk') : [];
+    var total = rows.length, on = 0;
+    for (var k = 0; k < total; k++) { if (rows[k].checked) on++; }
+    h.checked = total > 0 && on === total;
+    h.indeterminate = on > 0 && on < total;
+  }
+  function downloadTrack(t) {
+    if (!t || !t.key) return;
+    var name = t.name || '';
+    var url = '/dl/' + String(t.key).split('/').map(encodeURIComponent).join('/') +
+      (name ? '?n=' + encodeURIComponent(name) : '');
+    var a = document.createElement('a');
+    a.href = url;
+    if (name) a.download = name;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { a.remove(); }, 0);
+  }
+  function sortMusic() {
+    music.sort(function (a, b) { return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0); });
+  }
+  function renderMusic() {
+    var body = $('musicBody'); if (!body) return;
+    var total = music.length;
+    var pages = Math.max(1, Math.ceil(total / MUSIC_PAGE_SIZE));
+    if (musicPage > pages - 1) musicPage = pages - 1;
+    if (musicPage < 0) musicPage = 0;
+    var start = musicPage * MUSIC_PAGE_SIZE;
+    if (!total) {
+      body.innerHTML = '<tr><td colspan="8" class="hint">暂无媒体文件，点上方「上传音频 / 视频」添加</td></tr>';
+    } else {
+      body.innerHTML = '';
+      music.slice(start, start + MUSIC_PAGE_SIZE).forEach(function (t, k) {
+        var i = start + k, isV = isVideoTrack(t), on = picked.has(t.key);
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td data-label="选择"><input type="checkbox" class="mchk" data-k="' + escapeHtml(t.key) + '"' + (on ? ' checked' : '') + ' aria-label="选择"></td>' +
+          '<td data-label="#">' + (i + 1) + '</td>' +
+          '<td data-label="名称"><strong>' + escapeHtml(t.name) + '</strong></td>' +
+          '<td data-label="类型"><span class="chip' + (isV ? ' video' : '') + '">' + (isV ? '视频' : '音频') + '</span></td>' +
+          '<td data-label="时长" class="hint">' + fmtDur(t.duration) + '</td>' +
+          '<td data-label="大小" class="hint">' + fmtSize(t.size) + '</td>' +
+          '<td data-label="状态"><span class="chip' + (t.enabled ? '' : ' off') + '">' + (t.enabled ? '启用' : '停用') + '</span></td>' +
+          '<td data-label="操作"><div class="act-btns">' +
+            '<button data-a="rename" data-i="' + i + '">重命名</button>' +
+            '<button data-a="toggle" data-i="' + i + '">' + (t.enabled ? '停用' : '启用') + '</button>' +
+            '<button data-a="play" data-i="' + i + '">' + (isV ? '预览' : '试听') + '</button>' +
+            '<button data-a="dl" data-i="' + i + '">下载</button>' +
+            '<button data-a="del" data-i="' + i + '">删除</button>' +
+          '</div></td>';
+        body.appendChild(tr);
+      });
+    }
+    if ($('musicPageInfo')) $('musicPageInfo').textContent = (musicPage + 1) + ' / ' + pages;
+    if ($('musicPrevPage')) $('musicPrevPage').disabled = musicPage <= 0;
+    if ($('musicNextPage')) $('musicNextPage').disabled = musicPage >= pages - 1;
+    syncPickAll();
+    syncDlBtn();
+  }
+  if ($('musicPrevPage')) $('musicPrevPage').addEventListener('click', function () { musicPage--; renderMusic(); });
+  if ($('musicNextPage')) $('musicNextPage').addEventListener('click', function () { musicPage++; renderMusic(); });
+
+  function loadMusic() {
+    if (musicLoading) return;
+    musicLoading = true;
+    musicHint('正在读取云端媒体列表…');
+    fetch('/api/music', { cache: 'no-store', credentials: 'same-origin' })
+      .then(function (r) {
+        applyMediaLimits(r.headers);
+        if (!r.ok) return r.json().catch(function () { return {}; }).then(function (o) { throw new Error(apiError(r, o, 'HTTP ' + r.status)); });
+        return r.json();
+      })
+      .then(function (list) {
+        music = Array.isArray(list) ? list : [];
+        sortMusic();
+        renderMusic();
+        var on = music.filter(function (t) { return t.enabled; }).length;
+        var vids = music.filter(isVideoTrack).length;
+        musicHint((music.length
+          ? ('共 ' + music.length + ' 个（视频 ' + vids + ' 个），其中启用 ' + on + ' 个（首页只展示启用的媒体）')
+          : '暂无媒体文件，点上方「上传音频 / 视频」添加') + usageText());
+      })
+      .catch(function (e) { musicHint('读取失败：' + e.message, true); })
+      .then(function () { musicLoading = false; });
+  }
+
+  function saveMusic() {
+    var payload = {
+      tracks: music.map(function (t) {
+        return { id: t.id, name: t.name, key: t.key, size: t.size, duration: t.duration, type: t.type || '', createdAt: t.createdAt || 0, enabled: !!t.enabled };
+      })
+    };
+    musicHint('正在保存…');
+    return fetch('/api/music', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload)
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (out) {
+        if (!r.ok) throw new Error(apiError(r, out, '保存失败'));
+        renderMusic();
+        musicHint('已保存 · 首页约 1 秒内生效');
+        return true;
+      });
+    }).catch(function (e) { musicHint('保存失败：' + e.message, true); loadMusic(); return false; });
+  }
+
+  function deleteTrack(i) {
+    var t = music[i]; if (!t) return;
+    var label = isVideoTrack(t) ? '视频' : '音频';
+    if (!confirm('确定删除' + label + '「' + t.name + '」？删除后所有访客都无法再播放该文件。')) return;
+    musicHint('正在删除…');
+    fetch('/api/music?key=' + encodeURIComponent(t.key), { method: 'DELETE', credentials: 'same-origin' })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (out) {
+          if (!r.ok) throw new Error(apiError(r, out, '删除失败'));
+          music.splice(i, 1);
+          picked.delete(t.key); savePicked();
+          STORAGE_USED_BYTES = Math.max(0, STORAGE_USED_BYTES - (Number(t.size) || 0));
+          renderMusic();
+          musicHint('已删除「' + t.name + '」' + usageText());
+          if (isVideoTrack(t)) closeVideoPreview();
+          else if (musicPlayingKey === trackSrc(t)) { musicAudio.pause(); musicPlayingKey = ''; }
+        });
+      })
+      .catch(function (e) { musicHint('删除失败：' + e.message, true); });
+  }
+
+  var renameIdx = -1;
+  function openRename(i) {
+    var t = music[i]; if (!t) return;
+    renameIdx = i;
+    var inp = $('renameInput');
+    inp.value = t.name || '';
+    $('renameModal').classList.add('show');
+    setTimeout(function () { inp.focus(); inp.select(); }, 60);
+  }
+  function closeRename() {
+    var m = $('renameModal'); if (m) m.classList.remove('show');
+    renameIdx = -1;
+  }
+  function applyRename() {
+    var t = renameIdx >= 0 ? music[renameIdx] : null;
+    if (!t) { closeRename(); return; }
+    var name = String($('renameInput').value || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!name) { toast('名称不能为空'); return; }
+    if (name === t.name) { closeRename(); return; }
+    var old = t.name;
+    t.name = name;
+    closeRename();
+    saveMusic().then(function (ok) {
+      if (ok) toast('已把「' + old + '」改名为「' + name + '」');
+    });
+  }
+  if ($('renameSave')) $('renameSave').addEventListener('click', applyRename);
+  if ($('renameCancel')) $('renameCancel').addEventListener('click', closeRename);
+  if ($('renameInput')) $('renameInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); applyRename(); }
+    else if (e.key === 'Escape') closeRename();
+  });
+  if ($('renameModal')) $('renameModal').addEventListener('click', function (e) { if (e.target === this) closeRename(); });
+
+  var videoPreview = $('videoPreview');
+  function openVideoPreview(t) {
+    if (!videoPreview) return;
+    if (musicPlayingKey && !musicAudio.paused) { musicAudio.pause(); musicPlayingKey = ''; }
+    $('videoModalTitle').textContent = '视频预览 · ' + (t.name || '');
+    videoPreview.src = trackSrc(t);
+    $('videoModal').classList.add('show');
+    var p = videoPreview.play();
+    if (p && p.catch) p.catch(function () {});
+    musicHint('预览中：' + (t.name || '') + '（关闭弹窗即停止）');
+  }
+  function closeVideoPreview() {
+    var m = $('videoModal'); if (m) m.classList.remove('show');
+    if (videoPreview) {
+      try { videoPreview.pause(); } catch (e) {}
+      videoPreview.removeAttribute('src');
+      try { videoPreview.load(); } catch (e) {}
+    }
+  }
+  if ($('videoCloseX')) {
+    $('videoCloseX').addEventListener('click', closeVideoPreview);
+    $('videoModal').addEventListener('click', function (e) { if (e.target === this) closeVideoPreview(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeVideoPreview(); });
+  }
+
+  if ($('musicBody')) {
+    $('musicBody').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      var i = +b.dataset.i, a = b.dataset.a;
+      if (a === 'toggle') {
+        music[i].enabled = !music[i].enabled; renderMusic(); saveMusic();
+      } else if (a === 'play') {
+        var t = music[i];
+        if (!t) return;
+        if (isVideoTrack(t)) { openVideoPreview(t); return; }
+        var src = trackSrc(t);
+        if (musicPlayingKey === src && !musicAudio.paused) {
+          musicAudio.pause(); musicPlayingKey = ''; musicHint('已暂停试听');
+        } else {
+          musicPlayingKey = src;
+          musicAudio.src = src;
+          musicAudio.play().then(function () {
+            musicHint('试听中：' + t.name + '（再点一次可暂停）');
+          }).catch(function () { musicHint('试听失败，请刷新后再试', true); });
+        }
+      } else if (a === 'rename') {
+        openRename(i);
+      } else if (a === 'del') {
+        deleteTrack(i);
+      } else if (a === 'dl') {
+        var dt = music[i];
+        if (dt) { downloadTrack(dt); musicHint('已开始下载「' + (dt.name || '媒体') + '」'); }
+      }
+    });
+    $('musicBody').addEventListener('change', function (e) {
+      var c = e.target;
+      if (!c || !c.classList || !c.classList.contains('mchk')) return;
+      var k = c.getAttribute('data-k');
+      if (!k) return;
+      if (c.checked) picked.add(k); else picked.delete(k);
+      savePicked(); syncPickAll(); syncDlBtn();
+    });
+    if ($('musicAll')) {
+      $('musicAll').addEventListener('change', function () {
+        var on = this.checked;
+        var rows = $('musicBody').querySelectorAll('input.mchk');
+        for (var k = 0; k < rows.length; k++) {
+          rows[k].checked = on;
+          var key = rows[k].getAttribute('data-k');
+          if (key) { if (on) picked.add(key); else picked.delete(key); }
+        }
+        savePicked(); syncPickAll(); syncDlBtn();
+      });
+    }
+    if ($('btnMusicDl')) {
+      $('btnMusicDl').addEventListener('click', function () {
+        var list = music.filter(function (t) { return picked.has(t.key); });
+        if (!list.length) return;
+        musicHint('正在下载 ' + list.length + ' 个文件…（浏览器可能询问是否允许多文件下载）');
+        list.forEach(function (t, k) {
+          setTimeout(function () { downloadTrack(t); }, k * 700);
+        });
+        setTimeout(function () {
+          picked.clear(); savePicked(); renderMusic();
+          musicHint('已开始 ' + list.length + ' 个文件的下载');
+        }, list.length * 700);
+      });
+    }
+    musicAudio.addEventListener('ended', function () { musicPlayingKey = ''; });
+  }
+
+  /* 音频压缩：解码 → 重采样 44.1kHz → lamejs 编码 MP3 */
+  var ENC_RATE = 44100;
+  var MAX_SECONDS = 600;
+  function decodeAudio(ctx, buf) {
+    return new Promise(function (resolve, reject) {
+      var bad = new Error('无法解码该音频格式，请换 mp3 / wav / m4a');
+      var p;
+      try { p = ctx.decodeAudioData(buf, resolve, function () { reject(bad); }); }
+      catch (err) { reject(bad); return; }
+      if (p && typeof p.then === 'function') p.then(resolve, function () { reject(bad); });
+    });
+  }
+  function compressAudio(file, kbps, onProgress) {
+    return new Promise(function (resolve, reject) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      var OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!AC || !OAC) { reject(new Error('当前浏览器不支持音频压缩，请换 Chrome 或 Edge')); return; }
+      if (!window.lamejs || !window.lamejs.Mp3Encoder) { reject(new Error('音频压缩组件未加载，请刷新页面')); return; }
+      var ctx;
+      try { ctx = new AC(); } catch (err) { reject(new Error('无法启动音频解码')); return; }
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('文件读取失败')); };
+      reader.onload = function () {
+        var buf = reader.result;
+        if (ctx.state === 'suspended' && ctx.resume) { try { ctx.resume(); } catch (e) {} }
+        decodeAudio(ctx, buf).then(function (decoded) {
+          try { if (ctx.close) ctx.close(); } catch (e) {}
+          if (!decoded || !decoded.duration) throw new Error('音频内容为空');
+          if (decoded.duration > MAX_SECONDS) {
+            var tooLong = new Error('音频过长（压缩上限 ' + (MAX_SECONDS / 60) + ' 分钟）');
+            tooLong.code = 'TOO_LONG';
+            throw tooLong;
+          }
+
+          var frames = Math.max(1, Math.round(decoded.duration * ENC_RATE));
+          var off = new OAC(2, frames, ENC_RATE);
+          var node = off.createBufferSource();
+          node.buffer = decoded;          // 交给 OfflineAudioContext 自动重采样
+          node.connect(off.destination);
+          node.start(0);
+
+          off.startRendering().then(function (rendered) {
+            try {
+              var left = rendered.getChannelData(0), right = rendered.getChannelData(1);
+              var enc = new window.lamejs.Mp3Encoder(2, ENC_RATE, kbps || 128);
+              var BLOCK = 1152, out = [], total = Math.ceil(left.length / BLOCK) || 1;
+              var i = 0, bi = 0;
+              function pass() {   // 分片编码，之间让出主线程，避免界面卡死
+                var stop = Math.min(left.length, i + BLOCK * 40);
+                for (; i < stop; i += BLOCK, bi++) {
+                  var n = Math.min(BLOCK, left.length - i);
+                  var l16 = new Int16Array(n), r16 = new Int16Array(n);
+                  for (var k = 0; k < n; k++) {
+                    var lv = left[i + k], rv = right[i + k];
+                    lv = lv < -1 ? -1 : (lv > 1 ? 1 : lv);
+                    rv = rv < -1 ? -1 : (rv > 1 ? 1 : rv);
+                    l16[k] = lv < 0 ? lv * 32768 : lv * 32767;
+                    r16[k] = rv < 0 ? rv * 32768 : rv * 32767;
+                  }
+                  var chunk = enc.encodeBuffer(l16, r16);
+                  if (chunk.length) out.push(chunk);
+                }
+                if (onProgress) onProgress(Math.min(99, Math.round((bi / total) * 100)));
+                if (i < left.length) { setTimeout(pass, 0); return; }
+                var tail = enc.flush();
+                if (tail.length) out.push(tail);
+                resolve({ blob: new Blob(out, { type: 'audio/mpeg' }), duration: rendered.duration });
+              }
+              pass();
+            } catch (err) { reject(new Error('压缩失败：' + err.message)); }
+          }, function () { reject(new Error('音频渲染失败')); });
+        }).catch(reject);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  /* 上传：音频先压缩为 MP3；视频原样上传（用 XHR 显示上传进度） */
+  function guessVideoType(file) {
+    var t = String(file.type || '').toLowerCase();
+    if (/^video\//.test(t)) return t;
+    var n = String(file.name || '').toLowerCase();
+    if (/\.webm$/.test(n)) return 'video/webm';
+    if (/\.mov$/.test(n)) return 'video/quicktime';
+    if (/\.(ogv|ogg)$/.test(n)) return 'video/ogg';
+    return 'video/mp4';
+  }
+  function readMediaDuration(file, isVideo) {
+    return new Promise(function (resolve) {
+      var el = document.createElement(isVideo ? 'video' : 'audio');
+      var url = URL.createObjectURL(file), done = false;
+      function finish(d) {
+        if (done) return;
+        done = true;
+        try { URL.revokeObjectURL(url); } catch (e) {}
+        resolve(isFinite(d) && d > 0 ? Math.round(d) : 0);
+      }
+      el.preload = 'metadata';
+      el.onloadedmetadata = function () { finish(el.duration); };
+      el.onerror = function () { finish(0); };
+      setTimeout(function () { finish(el.duration); }, 8000);
+      el.src = url;
+    });
+  }
+  function guessAudioType(file) {
+    var t = String(file.type || '').toLowerCase();
+    if (/^audio\//.test(t)) return t;
+    var n = String(file.name || '').toLowerCase();
+    if (/\.wav$/.test(n)) return 'audio/wav';
+    if (/\.m4a$/.test(n)) return 'audio/mp4';
+    if (/\.flac$/.test(n)) return 'audio/flac';
+    if (/\.ogg$/.test(n)) return 'audio/ogg';
+    return 'audio/mpeg';
+  }
+  function uploadRaw(file, niceName, duration, type, label) {
+    if (file.size > MAX_CLOUD_BYTES) {
+      return Promise.reject(new Error('文件 ' + fmtSize(file.size) + ' 超过单次上传上限 ' +
+        fmtSize(MAX_CLOUD_BYTES) + '，请先压缩或裁剪'));
+    }
+    if (MAX_STORAGE_BYTES && STORAGE_USED_BYTES + file.size > MAX_STORAGE_BYTES) {
+      return Promise.reject(new Error('云端存储余量不足（已用 ' + fmtSize(STORAGE_USED_BYTES) +
+        ' / 上限 ' + fmtSize(MAX_STORAGE_BYTES) + '），请先删除一些媒体'));
+    }
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      var qs = '/api/music?name=' + encodeURIComponent(niceName) +
+        '&duration=' + Math.round(duration || 0) + '&type=' + encodeURIComponent(type);
+      xhr.open('POST', qs, true);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader('Content-Type', type || 'application/octet-stream');
+      xhr.upload.onprogress = function (e) {
+        if (!e.lengthComputable) return;
+        var pct = (e.loaded / e.total) * 100;
+        musicHint('上传中' + label + ' ' + Math.round(pct) + '% · ' +
+          niceName + '（' + fmtSize(e.loaded) + ' / ' + fmtSize(e.total) + '）');
+        upSet(pct, '上传中' + label + ' · ' + niceName + ' · ' + fmtSize(e.loaded) + ' / ' + fmtSize(e.total));
+      };
+      xhr.onload = function () {
+        var out = {};
+        try { out = JSON.parse(xhr.responseText || '{}'); } catch (e) {}
+        if (xhr.status >= 200 && xhr.status < 300) {
+          applyMediaLimits(xhr);
+          if (!Number(xhr.getResponseHeader('X-Media-Storage-Used-Bytes'))) {
+            STORAGE_USED_BYTES += (Number(out && out.track && out.track.size) || file.size || 0);
+          }
+          resolve(out);
+          return;
+        }
+        reject(new Error(apiError({ status: xhr.status }, out, '上传失败 HTTP ' + xhr.status)));
+      };
+      xhr.onerror = function () { reject(new Error('网络中断，上传失败')); };
+      xhr.onabort = function () { reject(new Error('上传已取消')); };
+      xhr.send(file);
+    });
+  }
+
+  function uploadOne(file, kbps, idx, total) {
+    var label = total > 1 ? '（' + idx + '/' + total + '）' : '';
+    var niceName = file.name.replace(/\.(mp3|wav|m4a|ogg|flac|aac|opus|weba|mp4|m4v|webm|mov|ogv|mkv)$/i, '').slice(0, 80) || '未命名';
+    var isVideo = /^video\//i.test(file.type || '') || /\.(mp4|m4v|webm|mov|ogv|mkv)$/i.test(file.name || '');
+
+    if (isVideo && file.size > MAX_CLOUD_BYTES) {
+      musicHint('「' + file.name + '」' + fmtSize(file.size) + ' 超过单次上传上限 ' +
+        fmtSize(MAX_CLOUD_BYTES) + '，请先压缩或裁剪后再传', true);
+      return Promise.resolve();
+    }
+
+    if (isVideo) {
+      musicHint('正在读取视频信息' + label + '：' + niceName);
+      upShow('读取视频信息' + label + ' · ' + niceName);
+      return readMediaDuration(file, true).then(function (dur) {
+        var type = guessVideoType(file);
+        musicHint('准备上传视频' + label + '：' + niceName + ' · ' + fmtSize(file.size) + '（原样上传，不压缩）');
+        upSet(0, '上传中' + label + ' · ' + niceName + ' · ' + fmtSize(file.size));
+        return uploadRaw(file, niceName, dur, type, label).then(function () {
+          musicHint('已上传视频：' + niceName + ' · ' + fmtSize(file.size) + (dur ? ' · ' + fmtDur(dur) : ''));
+          upDone('视频已上传 · ' + niceName);
+        });
+      }).catch(function (e) { upHide(); musicHint('上传失败（' + file.name + '）：' + e.message, true); });
+    }
+
+    musicHint('正在读取音频' + label + '：' + file.name);
+    upShow('读取音频' + label + ' · ' + file.name);
+    return compressAudio(file, kbps, function (pct) {
+      musicHint('压缩中' + label + ' ' + pct + '% · ' + file.name);
+      upSet(pct, '压缩中' + label + ' · ' + file.name);
+    }).then(function (packed) {
+      musicHint('正在上传' + label + '：' + niceName + ' · ' + fmtSize(packed.blob.size));
+      upSet(0, '上传中' + label + ' · ' + niceName + ' · ' + fmtSize(packed.blob.size));
+      return uploadRaw(packed.blob, niceName, packed.duration, 'audio/mpeg', label).then(function () {
+        musicHint('已上传音频：' + niceName + ' · 压缩前 ' + fmtSize(file.size) + ' → 压缩后 ' + fmtSize(packed.blob.size));
+        upDone('音频已上传 · ' + niceName);
+      });
+    }).catch(function (e) {
+      if (!e || e.code !== 'TOO_LONG') { upHide(); musicHint('处理失败（' + file.name + '）：' + e.message, true); return; }
+      var type = guessAudioType(file);
+      musicHint('音频超过 10 分钟，改为原样上传' + label + '：' + niceName + ' · ' + fmtSize(file.size));
+      upSet(0, '上传中' + label + ' · ' + niceName + ' · ' + fmtSize(file.size));
+      return readMediaDuration(file, false).then(function (dur) {
+        return uploadRaw(file, niceName, dur, type, label).then(function () {
+          musicHint('已上传音频（未压缩）：' + niceName + ' · ' + fmtSize(file.size) + (dur ? ' · ' + fmtDur(dur) : ''));
+          upDone('音频已上传 · ' + niceName);
+        });
+      }).catch(function (e2) { upHide(); musicHint('上传失败（' + file.name + '）：' + e2.message, true); });
+    });
+  }
+
+  if ($('btnMusicAdd')) {
+    $('btnMusicAdd').addEventListener('click', function () { $('musicInput').click(); });
+    $('btnMusicRefresh').addEventListener('click', function () { loadMusic(); });
+    $('musicInput').addEventListener('change', function (e) {
+      var files = Array.prototype.slice.call(e.target.files || []);
+      e.target.value = '';
+      if (!files.length) return;
+      var kbps = +$('musicBitrate').value || 128;
+      var p = Promise.resolve();
+      files.forEach(function (f, k) { p = p.then(function () { return uploadOne(f, kbps, k + 1, files.length); }); });
+      p.then(function () {
+        var w = $('upProgress');
+        if (w && !w.hidden) upDone('全部完成');
+        musicPage = 0; loadMusic();
+      });
+    });
+  }
+  loadMusic();
+})();
+</script>
+</body>
+</html>
