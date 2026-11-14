@@ -1,6 +1,7 @@
 # 云媒体中心 MusicPlay
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/szboboxing/musicplay/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/szboboxing/musicplay/actions/workflows/ci.yml)
 [![Deploy](https://img.shields.io/badge/Deploy-Cloudflare%20Pages-f38020?logo=cloudflare&logoColor=white)](https://cloudmusic.chinacn.eu.org)
 [![Latest Release](https://img.shields.io/github/v/release/szboboxing/musicplay?color=orange)](https://github.com/szboboxing/musicplay/releases)
 [![Last Commit](https://img.shields.io/github/last-commit/szboboxing/musicplay)](https://github.com/szboboxing/musicplay/commits/main)
