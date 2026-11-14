@@ -11,6 +11,12 @@
 - 技术栈：Cloudflare Pages + Pages Functions + 共用媒体 Worker（R2）
 - 部署：`.\deploy.ps1`（会把 theme.css + app.css 内联进首页，再发布）
 
+## 截图
+
+![云端媒体中心与热播榜单](docs/screenshots/home.png)
+
+![网络电台分组折叠与网络电视](docs/screenshots/radio-tv.png)
+
 ## 目录
 
 ```
